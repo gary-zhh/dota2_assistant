@@ -1,0 +1,24 @@
+gsi:
+  host: "0.0.0.0"
+  port: 3000
+
+llm:
+  model: "openai/gpt-oss-20b"
+  base_url: "http://localhost:8000/v1"
+  api_key: "EMPTY"
+  strategy_interval: 5.0  # 每5秒做一次战略决策
+
+executor:
+  enabled: true  # 设为false时只显示决策，不执行
+  human_delay_min: 0.1  # 最小延迟（秒）
+  human_delay_max: 0.3  # 最大延迟（秒）
+  emergency_stop_key: "F9"  # 紧急停止键
+
+game:
+  resolution:
+    width: 1920
+    height: 1080
+  minimap:
+    x: 50
+    y: 950
+    size: 150

@@ -119,6 +119,13 @@ class GameState:
         # 解析英雄信息
         if 'hero' in data:
             hero_data = data['hero']
+
+            # 金钱信息通常在player部分，不在hero部分
+            player_data = data.get('player', {})
+            gold = player_data.get('gold', 0)
+            gold_reliable = player_data.get('gold_reliable', 0)
+            gold_unreliable = player_data.get('gold_unreliable', 0)
+
             game_state.hero = HeroState(
                 name=hero_data.get('name', ''),
                 level=hero_data.get('level', 1),
@@ -131,9 +138,9 @@ class GameState:
                     y=hero_data.get('y', 0),
                     z=hero_data.get('z', 0)
                 ) if 'x' in hero_data else Vector3(0, 0, 0),
-                gold=hero_data.get('gold', 0),
-                gold_reliable=hero_data.get('gold_reliable', 0),
-                gold_unreliable=hero_data.get('gold_unreliable', 0),
+                gold=gold,
+                gold_reliable=gold_reliable,
+                gold_unreliable=gold_unreliable,
                 xp=hero_data.get('xp', 0),
                 alive=hero_data.get('alive', True),
                 respawn_seconds=hero_data.get('respawn_seconds', 0),

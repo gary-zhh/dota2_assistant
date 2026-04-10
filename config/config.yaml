@@ -16,9 +16,9 @@ executor:
 
 game:
   resolution:
-    width: 1920
-    height: 1080
+    width: 3840
+    height: 2160
   minimap:
-    x: 50
-    y: 950
-    size: 150
+    x: 100
+    y: 1900
+    size: 300

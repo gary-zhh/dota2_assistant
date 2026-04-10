@@ -22,7 +22,7 @@ class Dota2Assistant:
 
     def __init__(self, config_path: str = "config/config.yaml"):
         # 加载配置
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             self.config = yaml.safe_load(f)
 
         # 初始化GSI服务器
@@ -108,8 +108,34 @@ class Dota2Assistant:
                         self.current_strategy = await self.llm_strategy.decide(state)
                         self.last_strategy_time = current_time
                     except Exception as e:
-                        print(f"\nLLM error: {e}")
-                        continue
+                        print(f"\nLLM error: {e}, using rule-based fallback")
+                        # LLM失败时使用规则系统的默认策略
+                        from decision import Strategy
+                        phase = state.get_game_phase()
+                        hp_pct = state.get_health_percentage()
+
+                        # 根据游戏阶段和血量决定策略
+                        if hp_pct < 0.3:
+                            goal = "retreat"
+                            aggression = 0.1
+                        elif phase == "laning":
+                            goal = "laning"
+                            aggression = 0.5
+                        elif phase == "mid_game":
+                            goal = "farming"
+                            aggression = 0.6
+                        else:
+                            goal = "pushing"
+                            aggression = 0.7
+
+                        self.current_strategy = Strategy(
+                            goal=goal,
+                            target_lane="mid",
+                            aggression_level=aggression,
+                            should_buy=state.hero.gold > 500,
+                            recommended_items=[]
+                        )
+                        self.last_strategy_time = current_time
 
                 # 2. 战术动作生成
                 if self.current_strategy:
@@ -122,8 +148,20 @@ class Dota2Assistant:
 
                         # 3. 执行动作（如果启用）
                         if self.executor_enabled:
-                            # TODO: 调用执行器
-                            print("  (Executor not implemented yet)")
+                            from executor import InputController
+                            if not hasattr(self, 'input_controller'):
+                                self.input_controller = InputController(
+                                    resolution=(self.config['game']['resolution']['width'],
+                                              self.config['game']['resolution']['height']),
+                                    minimap_pos=(self.config['game']['minimap']['x'],
+                                               self.config['game']['minimap']['y']),
+                                    minimap_size=self.config['game']['minimap']['size']
+                                )
+
+                            try:
+                                self.input_controller.execute(top_action, state.hero.position)
+                            except Exception as e:
+                                print(f"  Executor error: {e}")
 
         except KeyboardInterrupt:
             print("\n\nStopping AI Assistant...")

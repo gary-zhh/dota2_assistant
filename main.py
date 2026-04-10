@@ -94,8 +94,12 @@ class Dota2Assistant:
                 if state is None:
                     continue
 
-                # 只在英雄存活时做决策
+                # 只在英雄存活且有完整数据时做决策
                 if not state.is_hero_alive():
+                    continue
+
+                # 检查英雄是否有有效的血量和蓝量（避免选人阶段执行）
+                if state.hero.max_health == 0 or state.hero.health == 0:
                     continue
 
                 current_time = time.time()
@@ -150,13 +154,7 @@ class Dota2Assistant:
                         if self.executor_enabled:
                             from executor import InputController
                             if not hasattr(self, 'input_controller'):
-                                self.input_controller = InputController(
-                                    resolution=(self.config['game']['resolution']['width'],
-                                              self.config['game']['resolution']['height']),
-                                    minimap_pos=(self.config['game']['minimap']['x'],
-                                               self.config['game']['minimap']['y']),
-                                    minimap_size=self.config['game']['minimap']['size']
-                                )
+                                self.input_controller = InputController(self.config)
 
                             try:
                                 self.input_controller.execute(top_action, state.hero.position)

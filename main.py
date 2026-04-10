@@ -157,7 +157,9 @@ class Dota2Assistant:
                                 self.input_controller = InputController(self.config)
 
                             try:
-                                self.input_controller.execute(top_action, state.hero.position)
+                                # 将Vector3转换为元组
+                                hero_pos = (state.hero.position.x, state.hero.position.y)
+                                self.input_controller.execute(top_action, hero_pos)
                             except Exception as e:
                                 print(f"  Executor error: {e}")
 

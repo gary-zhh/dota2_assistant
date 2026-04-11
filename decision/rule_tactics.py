@@ -70,25 +70,92 @@ class RuleTactics:
         """对线动作"""
         actions = []
         hero = state.hero
-
-        # 简化的对线逻辑
         hp_pct = state.get_health_percentage()
+        game_time = state.game_time
 
-        if hp_pct < 0.4:
-            # 血量低，保守走位
+        # 判断是哪条路（基于英雄位置）
+        hero_x, hero_y = hero.position.x, hero.position.y
+
+        # 计算对线位置（根据路线保持合适的站位）
+        if abs(hero_x + hero_y) < 2000:  # 中路
+            lane_center = (0, 0)
+            safe_offset = 300
+        elif hero_x < 0 and hero_y > 0:  # 上路（天辉视角）
+            lane_center = (-3000, 3000)
+            safe_offset = 400
+        else:  # 下路
+            lane_center = (3000, -3000)
+            safe_offset = 400
+
+        # 根据血量决定激进程度
+        if hp_pct < 0.3:
+            # 血量很低，撤退到塔下
+            tower_pos = (lane_center[0] * 0.7, lane_center[1] * 0.7)
+            actions.append(Action(
+                action_type=ActionType.MOVE,
+                priority=0.95,
+                target_location=tower_pos,
+                reason="Very low HP, retreat to tower"
+            ))
+        elif hp_pct < 0.5:
+            # 血量偏低，保守走位
+            safe_pos = (
+                hero_x + (lane_center[0] - hero_x) * 0.3,
+                hero_y + (lane_center[1] - hero_y) * 0.3
+            )
             actions.append(Action(
                 action_type=ActionType.MOVE,
                 priority=0.7,
-                target_location=(hero.position.x - 200, hero.position.y - 200),
+                target_location=safe_pos,
                 reason="Low HP, playing safe"
             ))
-        else:
-            # 正常对线，保持位置
+            # 仍然尝试补刀，但优先级较低
             actions.append(Action(
                 action_type=ActionType.ATTACK_CREEP,
-                priority=0.6,
+                priority=0.5,
+                reason="Careful last hitting"
+            ))
+        else:
+            # 血量健康，积极对线
+            # 1. 走位到对线位置
+            lane_pos = (
+                lane_center[0] + (safe_offset if strategy.aggression_level > 0.5 else -safe_offset),
+                lane_center[1] + (safe_offset if strategy.aggression_level > 0.5 else -safe_offset)
+            )
+
+            # 计算与目标位置的距离
+            dist_to_lane = math.sqrt(
+                (hero_x - lane_pos[0])**2 + (hero_y - lane_pos[1])**2
+            )
+
+            # 如果距离对线位置较远，先移动
+            if dist_to_lane > 500:
+                actions.append(Action(
+                    action_type=ActionType.MOVE,
+                    priority=0.75,
+                    target_location=lane_pos,
+                    reason="Moving to lane position"
+                ))
+
+            # 2. 补刀动作（使用A键攻击移动）
+            actions.append(Action(
+                action_type=ActionType.ATTACK_CREEP,
+                priority=0.8,
                 reason="Last hitting creeps"
             ))
+
+            # 3. 定期微调走位（避免站桩）
+            if int(game_time * 10) % 3 == 0:  # 每0.3秒左右
+                micro_offset = (
+                    hero_x + (100 if int(game_time) % 2 == 0 else -100),
+                    hero_y + (100 if int(game_time) % 2 == 1 else -100)
+                )
+                actions.append(Action(
+                    action_type=ActionType.MOVE,
+                    priority=0.4,
+                    target_location=micro_offset,
+                    reason="Micro positioning"
+                ))
 
         return actions
 

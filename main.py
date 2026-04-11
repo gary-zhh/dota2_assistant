@@ -45,6 +45,11 @@ class Dota2Assistant:
         self.last_strategy_time = 0.0
         self.strategy_interval = llm_config['strategy_interval']
 
+        # 动作执行控制
+        self.last_action_time = 0.0
+        self.action_interval = 0.5  # 每0.5秒执行一次动作
+        self.last_action_type = None
+
         # 执行器开关
         self.executor_enabled = self.config['executor']['enabled']
 
@@ -141,27 +146,47 @@ class Dota2Assistant:
                         )
                         self.last_strategy_time = current_time
 
-                # 2. 战术动作生成
+                # 2. 战术动作生成和执行
                 if self.current_strategy:
                     actions = self.rule_tactics.get_actions(state, self.current_strategy)
 
-                    # 显示决策
                     if actions:
                         top_action = actions[0]
-                        print(f"\n[Action] {top_action}")
 
-                        # 3. 执行动作（如果启用）
-                        if self.executor_enabled:
-                            from executor import InputController
-                            if not hasattr(self, 'input_controller'):
-                                self.input_controller = InputController(self.config)
+                        # 检查是否应该执行动作（冷却时间）
+                        should_execute = False
 
-                            try:
-                                # 将Vector3转换为元组
-                                hero_pos = (state.hero.position.x, state.hero.position.y)
-                                self.input_controller.execute(top_action, hero_pos)
-                            except Exception as e:
-                                print(f"  Executor error: {e}")
+                        # 高优先级动作立即执行
+                        if top_action.priority > 0.8:
+                            should_execute = True
+                        # 其他动作需要等待冷却
+                        elif current_time - self.last_action_time >= self.action_interval:
+                            should_execute = True
+                        # 如果动作类型改变，也立即执行
+                        elif top_action.action_type != self.last_action_type:
+                            should_execute = True
+
+                        if should_execute:
+                            # 显示决策（减少输出频率）
+                            if current_time - self.last_action_time >= 1.0:
+                                print(f"\n[Action] {top_action}")
+
+                            # 3. 执行动作（如果启用）
+                            if self.executor_enabled:
+                                from executor import InputController
+                                if not hasattr(self, 'input_controller'):
+                                    self.input_controller = InputController(self.config)
+
+                                try:
+                                    # 将Vector3转换为元组
+                                    hero_pos = (state.hero.position.x, state.hero.position.y)
+                                    self.input_controller.execute(top_action, hero_pos)
+
+                                    # 更新执行时间和类型
+                                    self.last_action_time = current_time
+                                    self.last_action_type = top_action.action_type
+                                except Exception as e:
+                                    print(f"  Executor error: {e}")
 
         except KeyboardInterrupt:
             print("\n\nStopping AI Assistant...")
